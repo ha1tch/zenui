@@ -1,0 +1,13 @@
+# repoman local state and release artefacts
+/.ed-journal.json
+/.release-state.json
+/release-*.log
+/zenui-v*-checkpoint.zip
+
+# Build / test output
+*.test
+*.out
+
+# Editor / OS
+.DS_Store
+*.swp

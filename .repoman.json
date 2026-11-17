@@ -1,0 +1,88 @@
+{
+  "release": {
+    "archive": {
+      "exclude": [
+        ".git/*",
+        ".git/*/*",
+        ".git/*/*/*",
+        ".git/*/*/*/*",
+        ".git/*/*/*/*/*",
+        ".git/*/*/*/*/*/*",
+        "*.exe",
+        "*.zip",
+        "*.out",
+        "*.log",
+        "*.test",
+        ".DS_Store",
+        "*.swp",
+        ".ed-journal.json",
+        ".release-state.json",
+        "go.work",
+        "go.work.sum"
+      ],
+      "name": "{repo}-v{version}-checkpoint.zip",
+      "size_warn_mb": 4,
+      "sources": [
+        "."
+      ]
+    },
+    "steps": [
+      {
+        "always": true,
+        "builtin": "syncver",
+        "name": "sync"
+      },
+      {
+        "always": true,
+        "name": "changelog",
+        "run": "sh ./check_changelog.sh"
+      },
+      {
+        "always": true,
+        "name": "register",
+        "run": "repoman register check"
+      },
+      {
+        "always": true,
+        "name": "go-sanity",
+        "run": "repoman gomod check"
+      },
+      {
+        "name": "build",
+        "resumable": true,
+        "run": "CGO_ENABLED=0 go build -tags purego ./...",
+        "timeout": 900
+      },
+      {
+        "name": "test",
+        "resumable": true,
+        "run": "CGO_ENABLED=0 go vet -tags purego ./... && CGO_ENABLED=0 go test -tags purego -count=1 ./...",
+        "timeout": 900
+      },
+      {
+        "always": true,
+        "builtin": "archive",
+        "name": "archive"
+      },
+      {
+        "always": true,
+        "name": "archive-check",
+        "run": "sh ./check_archive.sh"
+      }
+    ]
+  },
+  "version_targets": [
+    {
+      "file": "version.go",
+      "match": "const Version = \"([^\"]+)\""
+    },
+    {
+      "file": "docs/TRACKING.md",
+      "match": "^Version: (\\S+)"
+    },
+    {
+      "file": "docs/KNOWN_ISSUES.md",
+      "match": "^Version: (\\S+)"
+    }
+  ]
+}

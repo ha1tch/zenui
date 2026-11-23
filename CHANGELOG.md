@@ -2,6 +2,26 @@
 
 All notable changes to zenui are recorded here, newest first.
 
+## [0.3.0] - 2026-11-23
+
+Links in the text of a `TextModal` can be clicked.
+
+### Added
+
+- `TextModal.WithLinks(open)`: a `[text](address)` and a bare `http://` or
+  `https://` address in the modal's text become links, drawn in the theme's
+  accent colour and underlined (bold under the pointer), and a click on one
+  calls `open` with its address and leaves the modal as it is. The host opens
+  the address, so that this package opens nothing. It is opt-in, for text the
+  host wrote itself: a modal made with `NewTextModal` alone has no links, so
+  that a file name or a tape's block name that looks like an address is never
+  one. Only the web schemes are links, in either form. `TextModal.OverLink`
+  says whether the pointer is over one, for a host's pointing-hand cursor.
+- `WrapLinkedText`: `WrapText` for text with `[text](address)` links. It
+  counts only what is seen, breaks only at spaces, and carries a link over a
+  break by closing it on the one line and opening it again, to the same
+  address, on the next.
+
 ## [0.2.1] - 2026-11-21
 
 A submenu with no room on the right of its parent now opens to the left of it.

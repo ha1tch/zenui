@@ -33,7 +33,8 @@ func TextBodyScale(r Renderer, screenW int) int {
 // plain body text. Shown over the host's picture with a dim backdrop,
 // dismissed via Escape, its own close box, or a click outside the
 // panel. It scrolls with the arrows, Page Up and Down, Home and End,
-// the wheel, and a scrollbar that drags.
+// the wheel, and a scrollbar that drags. With WithLinks, a "[text](address)"
+// and a bare http:// or https:// address in the text are links that a click opens.
 //
 // It began as zenimate's help window and was generalised in zenzx to
 // take its title and content and the active Theme, so that Help and
@@ -66,6 +67,11 @@ type TextModal struct {
 	dragOffset int // pointer offset within the thumb at grab time
 
 	mouseX, mouseY int // the pointer at the last Update, for the close box's hover
+
+	// links: openLink, when the host asked for links (WithLinks), is called with the
+	// address of a link that is clicked; links is where the links were drawn.
+	openLink func(url string)
+	links    []linkRect
 }
 
 // NewTextModal makes a reader for content under title. With autoHeight the
@@ -208,6 +214,15 @@ func (h *TextModal) clampScroll() {
 // Update handles scrolling and dismissal. It returns false when the modal
 // should close.
 func (h *TextModal) Update(in Input) bool {
+	// A click on a link goes to the host and leaves the modal as it is. It is tried first, against
+	// where the last Draw put the links, before this frame's scrolling moves them.
+	if in.MousePressed {
+		if u := h.linkAt(in.MouseX, in.MouseY); u != "" {
+			h.mouseX, h.mouseY = in.MouseX, in.MouseY
+			h.openLink(u)
+			return true
+		}
+	}
 	for _, k := range in.Keys {
 		switch k {
 		case KeyEscape:
@@ -324,8 +339,13 @@ func (h *TextModal) Draw(r Renderer, screenW, screenH int, theme Theme) {
 	if end > h.total {
 		end = h.total
 	}
+	h.links = h.links[:0]
 	for i := h.scroll; i < end; i++ {
-		DrawTextLine(r, h.lines[i], h.body.X, y, h.effScale, theme)
+		if h.openLink != nil {
+			h.links = append(h.links, drawLinkedLine(r, h.lines[i], h.body.X, y, h.effScale, h.bodyLH, theme, mx, my)...)
+		} else {
+			DrawTextLine(r, h.lines[i], h.body.X, y, h.effScale, theme)
+		}
 		y += h.bodyLH
 	}
 	r.ClipEnd()

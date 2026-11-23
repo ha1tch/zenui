@@ -34,7 +34,7 @@ open := m.Update(zenuiraylib.Input())       // false: close it
 |---|---|
 | `Dialog` | File Open/Save: folders, filtering, selection, a file name field, a preview pane |
 | `Modal`, `MessageBox` | A framed window with a form and a row of buttons; the usual OK, Yes/No, OK/Cancel boxes |
-| `TextModal` | A scrolling reader for a title and a text in a light markdown subset: Help, About |
+| `TextModal` | A scrolling reader for a title and a text in a light markdown subset: Help, About; `WithLinks` makes its `[text](address)` links and bare web addresses clickable |
 | `Form` | Labelled fields in a frame, the body of a `Modal` |
 | `OptionPanel` | A panel of choices |
 

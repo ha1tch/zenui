@@ -98,6 +98,9 @@ func (m *Menu) layout(r Renderer, screenW, screenH int, theme Theme) {
 	switch {
 	case a.X+menuW <= screenW:
 		x = a.X
+	case m.flipOK && m.flipRight-menuW >= 0:
+		// A submenu with no room on the right grows to the left of its parent.
+		x = m.flipRight - menuW
 	case a.X+a.W-menuW >= 0:
 		x = a.X + a.W - menuW
 	default:
@@ -371,7 +374,9 @@ func (m *Menu) accept(i int) Status {
 // anchor-fallback logic unchanged via a zero-size anchor placed at the
 // row's right edge, rather than a separate positioning branch). Shifted
 // 4px left of the parent row's own right edge, so the submenu overlaps
-// it slightly rather than starting exactly flush.
+// it slightly rather than starting exactly flush. With no room on the
+// right it opens to the left instead, its right edge on the parent's left
+// edge (flipRight), so it covers none of the menu that owns it.
 func (m *Menu) openSubmenu(i int) {
 	const submenuOverlapX = 4
 	rec := m.itemRects[i]
@@ -382,6 +387,8 @@ func (m *Menu) openSubmenu(i int) {
 		Scale:  m.scale,
 	})
 	m.subMenu.isSubmenu = true
+	m.subMenu.flipRight = rec.X
+	m.subMenu.flipOK = true
 }
 
 // moveSelected shifts the keyboard-selected item by delta, wrapping, and

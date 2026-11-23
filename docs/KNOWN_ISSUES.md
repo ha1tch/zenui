@@ -1,7 +1,7 @@
 # zenui — known issues and limits
 
-Version: 0.2.0
-Last reviewed: 2026-10-18
+Version: 0.2.1
+Last reviewed: 2026-11-21
 
 Intentional limits, invariant boundaries and recorded decisions. Open,
 actionable work lives in `TRACKING.md`.

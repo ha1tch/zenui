@@ -105,6 +105,12 @@ type Menu struct {
 	// item, not under the bar), so a submenu always draws its full
 	// border regardless of this theme setting.
 	isSubmenu bool
+
+	// flipRight, when flipOK, is the x a submenu's right edge takes if it does
+	// not fit to the right of its parent: the parent's own left edge, so the
+	// submenu opens beside the parent, to its left, and covers none of it.
+	flipRight int
+	flipOK    bool
 }
 
 // NewMenu creates a menu from cfg. It never returns nil.

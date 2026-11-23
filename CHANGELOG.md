@@ -2,6 +2,19 @@
 
 All notable changes to zenui are recorded here, newest first.
 
+## [0.2.1] - 2026-11-21
+
+A submenu with no room on the right of its parent now opens to the left of it.
+
+### Fixed
+
+- A submenu that did not fit to the right of its parent was placed with its
+  right edge on the parent's right edge, which put it over the parent's own
+  rows. It now opens beside the parent on the left, its right edge on the
+  parent's left edge, and covers none of the menu that owns it. A submenu
+  that fits on the right is placed as before, and one with room on neither
+  side is still clamped inside the screen.
+
 ## [0.2.0] - 2026-11-16
 
 What zenzx's own copy of the toolkit gained after the extraction, so that

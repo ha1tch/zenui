@@ -73,6 +73,18 @@ type MenuBar struct {
 	// switching to it mid-session doesn't reset the phase to whatever
 	// arrangement happened to be first.
 	logoElapsed float64
+
+	// logoTeeth is the colour of each of the logo's four teeth (an index into
+	// zspLogoPalette) that holds now, and logoNext the quartet it fades to, both
+	// picked at random: the first pair when the logo is first drawn, and a new
+	// next, the old next becoming the current, each time logoElapsed passes into
+	// another cycle, which logoStep is the number of. logoPicked is false until
+	// the first pick. logoRandom is the source of chance, replaced by a test.
+	logoTeeth  [zspLogoTeeth]int
+	logoNext   [zspLogoTeeth]int
+	logoStep   int
+	logoPicked bool
+	logoRandom func(n int) int
 }
 
 // NewMenuBar creates a menu bar from cfg. It never returns nil.
@@ -81,7 +93,31 @@ func NewMenuBar(cfg MenuBarConfig) *MenuBar {
 	if scale <= 0 {
 		scale = dlgScale
 	}
-	return &MenuBar{cfg: cfg, scale: scale, openIndex: -1}
+	return &MenuBar{cfg: cfg, scale: scale, openIndex: -1, logoRandom: zspLogoRandom}
+}
+
+// logoColours is the colour of each of the logo's teeth now: the quartet that
+// holds, or a blend of it towards the next while the fade is under way. It picks
+// the quartets when this is the first time, and moves on to the next when a cycle
+// has passed since the last.
+func (mb *MenuBar) logoColours() [zspLogoTeeth]Colour {
+	step := int(mb.logoElapsed / zspLogoCycle)
+	pick := mb.logoRandom
+	if pick == nil {
+		pick = zspLogoRandom
+	}
+	switch {
+	case !mb.logoPicked:
+		mb.logoTeeth = nextZSPLogoTeeth([zspLogoTeeth]int{-1, -1, -1, -1}, pick)
+		mb.logoNext = nextZSPLogoTeeth(mb.logoTeeth, pick)
+		mb.logoStep = step
+		mb.logoPicked = true
+	case step != mb.logoStep:
+		mb.logoTeeth = mb.logoNext
+		mb.logoNext = nextZSPLogoTeeth(mb.logoTeeth, pick)
+		mb.logoStep = step
+	}
+	return zspLogoShown(mb.logoTeeth, mb.logoNext, mb.logoElapsed-float64(step)*zspLogoCycle)
 }
 
 // Active reports whether a dropdown is currently open.
@@ -298,8 +334,7 @@ func (mb *MenuBar) Draw(r Renderer, screenW, screenH, barY, height int, theme Th
 	}
 	if theme.ShowZSPLogo {
 		if x0, blockW, blockH, ok := zspLogoGeometry(mb.labelsEndX, screenW, height); ok {
-			colourIdx := int(mb.logoElapsed / zspLogoRotationPeriod)
-			drawZSPLogo(r, x0, barY, blockW, blockH, colourIdx)
+			drawZSPLogo(r, x0, barY, blockW, blockH, mb.logoColours())
 			mb.decorX = x0
 		}
 	}

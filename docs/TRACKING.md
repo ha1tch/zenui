@@ -1,6 +1,6 @@
 # zenui — live register
 
-Version: 0.3.0
+Version: 0.3.2
 Last reviewed: 2026-11-23
 
 Open, actionable items only. Closed items move verbatim to

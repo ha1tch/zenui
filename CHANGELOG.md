@@ -2,6 +2,39 @@
 
 All notable changes to zenui are recorded here, newest first.
 
+## [0.3.2] - 2026-11-23
+
+The ZSP logo fades from one quartet of colours to the next.
+
+### Changed
+
+- The logo's colours no longer switch all at once every second. A quartet
+  holds still for a second, then the four teeth fade together, over half a
+  second, to the next quartet (a straight blend, tooth by tooth), which holds
+  in its turn; so a cycle is a second and a half. The next quartet is picked
+  as the one before it is shown, and as before no tooth keeps its colour from
+  one quartet to the next.
+- A frame longer than a cycle is one step on, not several.
+
+## [0.3.1] - 2026-11-23
+
+The ZSP logo takes a random colour for each of its four teeth.
+
+### Changed
+
+- The logo at the right of the bar (the Dark and Light themes) no longer
+  turns through three fixed pairs of colours. Each of its four teeth is now one
+  colour of the palette, picked at random, and once every second all four are
+  picked again; a tooth never keeps the colour it had, and two teeth can have
+  the same one.
+- The palette is the Spectrum's eight colours at the normal level (`0xC8`),
+  taken half of the way to white and then a tenth of the way to their own
+  grey: a pastel red, green, blue, and so on. Black, which lightening leaves
+  dark, is 70% white (`0xB3`). White is a very light grey, and shows little
+  on the Light theme's bar.
+- `MenuBar` keeps the quartet it is showing, so the colours hold from frame to
+  frame and change only when a rotation period has passed.
+
 ## [0.3.0] - 2026-11-23
 
 Links in the text of a `TextModal` can be clicked.

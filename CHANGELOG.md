@@ -2,6 +2,27 @@
 
 All notable changes to zenui are recorded here, newest first.
 
+## [0.3.3] - 2026-11-23
+
+The ZSP logo shows the Spectrum's own colours now and then.
+
+### Changed
+
+- After every ten quartets of random colours the logo shows a fixed one
+  instead: the four bands of the Spectrum's rainbow in their order, red,
+  yellow, green and cyan, one for each tooth from the left, in the palette's
+  own pastel colours (unchanged). It is faded to as any other quartet is, holds
+  for three seconds instead of one, fades to the next random quartet, and ten
+  more random ones follow. A run is ten cycles of a second and a half, then the
+  Spectrum's quartet's three seconds and half-second fade: eighteen and a
+  half seconds in all.
+- No tooth keeps its colour into the Spectrum's quartet or out of it: the last
+  random quartet before it is picked to keep off its colours as well as its own
+  predecessor's.
+- `MenuBar` tracks the seconds into the current cycle itself, so that a cycle
+  can be as long as its quartet needs; a frame longer than a cycle is still one
+  quartet on, not several.
+
 ## [0.3.2] - 2026-11-23
 
 The ZSP logo fades from one quartet of colours to the next.

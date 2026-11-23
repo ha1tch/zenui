@@ -10,7 +10,10 @@ import (
 // The logo's colours. Each of its four teeth (see drawZSPLogo) is one colour of
 // zspLogoPalette, picked at random. A quartet holds still for zspLogoHold, and
 // the four teeth then fade together, over zspLogoFade, to the next quartet, in
-// which each has another colour than it had; that holds in its turn.
+// which each has another colour than it had; that holds in its turn. After
+// every zspLogoRun quartets picked at random the next is not picked: it is the
+// Spectrum's own (zspLogoSpectrum), which holds for the longer zspLogoFixedHold
+// before the random ones begin again.
 //
 // The palette is the Spectrum's eight colours at the normal level (the 0xC8 of
 // zxpalette.RGBA), lightened almost to a pastel and a little desaturated. Black,
@@ -57,6 +60,30 @@ const (
 	zspLogoCycle = zspLogoHold + zspLogoFade
 )
 
+// The Spectrum's quartet. Every zspLogoRun quartets of random colours the logo
+// shows the four bands of the Spectrum's own rainbow instead, in their order
+// (red, yellow, green, cyan), one for each tooth from the left and each in the
+// palette's pastel colour as it is. It holds for zspLogoFixedHold seconds, then
+// fades to the next random quartet as any other does, and another run begins.
+const (
+	zspLogoRun       = 10
+	zspLogoFixedHold = 3.0
+)
+
+var zspLogoSpectrum = [zspLogoTeeth]int{zxpalette.Red, zxpalette.Yellow, zxpalette.Green, zxpalette.Cyan}
+
+// zspLogoFixedAt reports whether the quartet that is number seq of the logo's
+// run of them (the first is 0) is the Spectrum's.
+func zspLogoFixedAt(seq int) bool { return seq%(zspLogoRun+1) == zspLogoRun }
+
+// zspLogoHoldOf is how long the quartet number seq holds still.
+func zspLogoHoldOf(seq int) float64 {
+	if zspLogoFixedAt(seq) {
+		return zspLogoFixedHold
+	}
+	return zspLogoHold
+}
+
 // zspLogoGeometry computes where the logo should draw and its block
 // size, given the X position just past the bar's last label and the
 // screen width. Pure function, no drawing -- mirrors rainbowGeometry's
@@ -100,19 +127,49 @@ const zspLogoTeeth = 4
 // each step. A tooth that has none yet, which prev marks with -1, may have any.
 // pick(n) returns a random integer from 0 to n-1.
 func nextZSPLogoTeeth(prev [zspLogoTeeth]int, pick func(n int) int) [zspLogoTeeth]int {
+	return nextZSPLogoTeethBefore(prev, [zspLogoTeeth]int{-1, -1, -1, -1}, pick)
+}
+
+// nextZSPLogoTeethBefore is nextZSPLogoTeeth for a quartet that is itself
+// followed by after: each tooth's colour is also other than the one it has in
+// after (-1 marks none), so that no tooth keeps its colour into that quartet
+// either. It calls pick once for each tooth.
+func nextZSPLogoTeethBefore(prev, after [zspLogoTeeth]int, pick func(n int) int) [zspLogoTeeth]int {
 	var next [zspLogoTeeth]int
 	for i := range next {
-		if prev[i] < 0 || prev[i] >= len(zspLogoPalette) {
-			next[i] = pick(len(zspLogoPalette))
-			continue
+		skip := func(c int) bool { return c == prev[i] || c == after[i] }
+		free := 0
+		for c := range zspLogoPalette {
+			if !skip(c) {
+				free++
+			}
 		}
-		k := pick(len(zspLogoPalette) - 1)
-		if k >= prev[i] {
-			k++
+		k := pick(free)
+		for c := range zspLogoPalette {
+			if skip(c) {
+				continue
+			}
+			if k == 0 {
+				next[i] = c
+				break
+			}
+			k--
 		}
-		next[i] = k
 	}
 	return next
+}
+
+// zspLogoQuartetAfter is the quartet that follows quartet number seq, which is
+// cur: the Spectrum's when that is its turn, and otherwise a random one that,
+// when the Spectrum's is to come after it, also keeps off the Spectrum's colours.
+func zspLogoQuartetAfter(seq int, cur [zspLogoTeeth]int, pick func(n int) int) [zspLogoTeeth]int {
+	switch {
+	case zspLogoFixedAt(seq + 1):
+		return zspLogoSpectrum
+	case zspLogoFixedAt(seq + 2):
+		return nextZSPLogoTeethBefore(cur, zspLogoSpectrum, pick)
+	}
+	return nextZSPLogoTeeth(cur, pick)
 }
 
 // zspLogoRandom is the bar's source of chance for the logo: a random integer
@@ -130,7 +187,13 @@ func blendColour(a, b Colour, t float64) Colour {
 // until zspLogoHold has passed, then a straight blend towards next, which it
 // is at zspLogoCycle.
 func zspLogoShown(cur, next [zspLogoTeeth]int, phase float64) [zspLogoTeeth]Colour {
-	t := (phase - zspLogoHold) / zspLogoFade
+	return zspLogoShownHeld(cur, next, zspLogoHold, phase)
+}
+
+// zspLogoShownHeld is zspLogoShown for a quartet that holds for hold seconds
+// before it fades.
+func zspLogoShownHeld(cur, next [zspLogoTeeth]int, hold, phase float64) [zspLogoTeeth]Colour {
+	t := (phase - hold) / zspLogoFade
 	t = math.Max(0, math.Min(1, t))
 	var out [zspLogoTeeth]Colour
 	for i := range out {

@@ -1,6 +1,6 @@
 # zenui — known issues and limits
 
-Version: 0.3.2
+Version: 0.3.3
 Last reviewed: 2026-11-23
 
 Intentional limits, invariant boundaries and recorded decisions. Open,

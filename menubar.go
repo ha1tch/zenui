@@ -75,14 +75,19 @@ type MenuBar struct {
 	logoElapsed float64
 
 	// logoTeeth is the colour of each of the logo's four teeth (an index into
-	// zspLogoPalette) that holds now, and logoNext the quartet it fades to, both
-	// picked at random: the first pair when the logo is first drawn, and a new
-	// next, the old next becoming the current, each time logoElapsed passes into
-	// another cycle, which logoStep is the number of. logoPicked is false until
-	// the first pick. logoRandom is the source of chance, replaced by a test.
+	// zspLogoPalette) that holds now, and logoNext the quartet it fades to: the
+	// first pair picked at random when the logo is first drawn, and then a new
+	// next, the old next becoming the current, each time the cycle that logoPhase
+	// is the seconds into is over. logoSeq is the current quartet's number in the
+	// run of them, which says whether it is the Spectrum's (zspLogoFixedAt) and so
+	// how long it holds; logoSeen is the logoElapsed of the last frame drawn.
+	// logoPicked is false until the first pick. logoRandom is the source of
+	// chance, replaced by a test.
 	logoTeeth  [zspLogoTeeth]int
 	logoNext   [zspLogoTeeth]int
-	logoStep   int
+	logoSeq    int
+	logoPhase  float64
+	logoSeen   float64
 	logoPicked bool
 	logoRandom func(n int) int
 }
@@ -98,26 +103,31 @@ func NewMenuBar(cfg MenuBarConfig) *MenuBar {
 
 // logoColours is the colour of each of the logo's teeth now: the quartet that
 // holds, or a blend of it towards the next while the fade is under way. It picks
-// the quartets when this is the first time, and moves on to the next when a cycle
-// has passed since the last.
+// the quartets when this is the first time, and moves on to the next when the
+// cycle of the one that holds is over; a quartet holds for zspLogoHold, or for
+// zspLogoFixedHold when it is the Spectrum's, and then fades for zspLogoFade. A
+// frame longer than a cycle is one quartet on, not several.
 func (mb *MenuBar) logoColours() [zspLogoTeeth]Colour {
-	step := int(mb.logoElapsed / zspLogoCycle)
 	pick := mb.logoRandom
 	if pick == nil {
 		pick = zspLogoRandom
 	}
-	switch {
-	case !mb.logoPicked:
+	dt := mb.logoElapsed - mb.logoSeen
+	mb.logoSeen = mb.logoElapsed
+	if !mb.logoPicked {
 		mb.logoTeeth = nextZSPLogoTeeth([zspLogoTeeth]int{-1, -1, -1, -1}, pick)
-		mb.logoNext = nextZSPLogoTeeth(mb.logoTeeth, pick)
-		mb.logoStep = step
-		mb.logoPicked = true
-	case step != mb.logoStep:
+		mb.logoNext = zspLogoQuartetAfter(0, mb.logoTeeth, pick)
+		mb.logoSeq, mb.logoPhase, mb.logoPicked = 0, 0, true
+	} else if mb.logoPhase += dt; mb.logoPhase >= zspLogoHoldOf(mb.logoSeq)+zspLogoFade {
+		mb.logoPhase -= zspLogoHoldOf(mb.logoSeq) + zspLogoFade
+		mb.logoSeq++
 		mb.logoTeeth = mb.logoNext
-		mb.logoNext = nextZSPLogoTeeth(mb.logoTeeth, pick)
-		mb.logoStep = step
+		mb.logoNext = zspLogoQuartetAfter(mb.logoSeq, mb.logoTeeth, pick)
+		if mb.logoPhase >= zspLogoHoldOf(mb.logoSeq)+zspLogoFade {
+			mb.logoPhase = 0
+		}
 	}
-	return zspLogoShown(mb.logoTeeth, mb.logoNext, mb.logoElapsed-float64(step)*zspLogoCycle)
+	return zspLogoShownHeld(mb.logoTeeth, mb.logoNext, zspLogoHoldOf(mb.logoSeq), mb.logoPhase)
 }
 
 // Active reports whether a dropdown is currently open.

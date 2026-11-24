@@ -34,11 +34,14 @@ func (m *Menu) layout(r Renderer, screenW, screenH int, theme Theme) {
 	// indicator, sized to one text cell -- but only if at least one
 	// item in this menu actually uses Checked, so a menu with none
 	// draws exactly as it did before this field existed.
-	m.checkGutter = 0
+	m.checkGutter, m.iconGutter = 0, 0
 	m.hasSubItems = false
 	for _, it := range m.cfg.Items {
 		if it.Checked != nil {
 			m.checkGutter = lh
+		}
+		if it.Icon != nil && !it.Separator && !it.Title {
+			m.iconGutter = lh
 		}
 		if len(it.SubItems) > 0 {
 			m.hasSubItems = true
@@ -85,7 +88,7 @@ func (m *Menu) layout(r Renderer, screenW, screenH int, theme Theme) {
 		}
 		rowH[i] = itemH
 		menuH += itemH
-		w := r.TextWidth(it.Label, m.scale) + 2*padX + m.checkGutter + arrowGutter
+		w := r.TextWidth(it.Label, m.scale) + 2*padX + m.checkGutter + m.iconGutter + arrowGutter
 		if w > menuW {
 			menuW = w
 		}
@@ -166,7 +169,10 @@ func (m *Menu) Draw(r Renderer, screenW, screenH int, theme Theme) {
 		if it.Checked != nil {
 			drawCheckIndicator(r, rec, m.padX, m.checkGutter, lh, *it.Checked, it.Toggle, col, theme)
 		}
-		textX := rec.X + m.padX + m.checkGutter
+		if it.Icon != nil && m.iconGutter > 0 {
+			it.Icon(r, Rect{rec.X + m.padX + m.checkGutter, rec.Y + (rec.H-lh)/2, lh, lh}, col)
+		}
+		textX := rec.X + m.padX + m.checkGutter + m.iconGutter
 		r.DrawText(it.Label, textX, rec.Y+(rec.H-lh)/2, m.scale, col)
 
 		if len(it.SubItems) > 0 {

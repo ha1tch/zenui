@@ -2,6 +2,20 @@
 
 All notable changes to zenui are recorded here, newest first.
 
+## [0.3.4] - 2026-11-24
+
+A menu row can have a picture.
+
+### Added
+
+- `Item.Icon`: a menu row can draw a small picture before its label. It is a
+  function that is given the square cell (one line of text) to fill and the
+  colour the label is drawn in, which follows the row being selected or
+  disabled. The cell is after the checkmark's gutter and before the label; a
+  menu reserves the room only if one of its rows has an icon, as it does for
+  `Checked`, so a menu with none draws as before. Not drawn on a separator or
+  a title.
+
 ## [0.3.3] - 2026-11-23
 
 The ZSP logo shows the Spectrum's own colours now and then.

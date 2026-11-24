@@ -42,6 +42,12 @@ type Item struct {
 	// group is the caller's own choice (leading spaces in their
 	// Label), not something this field does automatically.
 	Title bool
+	// Icon, if set, draws a small picture before the label: it is called with the cell
+	// the picture is to fill (a square of one text line, after the checkmark gutter) and
+	// the colour the label is drawn in, which follows the row being selected or disabled.
+	// A menu reserves the gutter only if at least one of its items sets this, as it does
+	// for Checked. Ignored on a Separator or a Title.
+	Icon func(r Renderer, cell Rect, col Colour)
 }
 
 // MenuConfig sets up a dropdown menu.
@@ -84,6 +90,7 @@ type Menu struct {
 	bounds      Rect
 	itemRects   []Rect
 	padX        int
+	iconGutter  int  // extra left space, after the checkGutter, reserved for Item.Icon; 0 if no item in this menu has one
 	checkGutter int  // extra left space reserved for a checkmark/checkbox indicator; 0 if no item in this menu uses Checked
 	hasSubItems bool // true if any item has SubItems, reserving right-edge arrow space
 

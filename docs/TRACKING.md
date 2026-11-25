@@ -1,7 +1,7 @@
 # zenui — live register
 
-Version: 0.3.4
-Last reviewed: 2026-11-23
+Version: 0.3.5
+Last reviewed: 2026-11-25
 
 Open, actionable items only. Closed items move verbatim to
 `RESOLVED.md` (see `repoman register close`); a closed item still

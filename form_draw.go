@@ -1,5 +1,7 @@
 package zenui
 
+import "unicode/utf8"
+
 // layout computes each column's width and each row's height from the
 // fields that occupy them (snapped up to gridSize), then positions every
 // field's rect from those cumulative offsets. A single-column field's
@@ -170,10 +172,19 @@ func (f *Form) Draw(r Renderer, screenW, screenH int, theme Theme) {
 			if fld.Text != nil {
 				text = *fld.Text
 			}
+			// A text that does not fit shows its end, where the caret is
+			// and the next rune goes, as TextField does.
+			pad, caretW := cellPad/2, max(1, lh/8)
+			textW := func(s string) int { return r.TextWidth(s, f.scale) }
+			runes := []rune(text)
+			shown := string(runes[startFor(runes, len(runes), rec.W-2*pad-caretW-1, textW):])
 			r.Clip(rec)
-			r.DrawText(text, rec.X+cellPad/2, rec.Y+(rec.H-lh)/2, f.scale, col)
+			r.DrawText(shown, rec.X+pad, rec.Y+(rec.H-lh)/2, f.scale, col)
 			r.ClipEnd()
 			if focused {
+				if !fld.Disabled {
+					r.FillRect(Rect{X: rec.X + pad + textW(shown), Y: rec.Y + (rec.H-lh)/2, W: caretW, H: lh}, col)
+				}
 				drawBorder(r, rec, theme.SelFill, 1, false)
 			}
 		}
@@ -212,12 +223,17 @@ func (f *Form) Update(in Input) Status {
 		fld := f.cfg.Fields[f.focus]
 		if fld.Type == FieldText && fld.Text != nil {
 			if in.pressed(KeyBackspace) && *fld.Text != "" {
-				*fld.Text = (*fld.Text)[:len(*fld.Text)-1]
+				_, n := utf8.DecodeLastRuneInString(*fld.Text)
+				*fld.Text = (*fld.Text)[:len(*fld.Text)-n]
 			}
 			for _, r := range in.Chars {
-				if r >= 0x20 && r != 0x7f {
-					*fld.Text += string(r)
+				if r < 0x20 || r == 0x7f || (fld.Accept != nil && !fld.Accept(r)) {
+					continue
 				}
+				if fld.MaxLen > 0 && utf8.RuneCountInString(*fld.Text) >= fld.MaxLen {
+					break
+				}
+				*fld.Text += string(r)
 			}
 		}
 	}

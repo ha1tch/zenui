@@ -22,9 +22,17 @@ type FormField struct {
 
 	// Text is FieldText's current value; the Form edits *Text in
 	// place (append/backspace, the same convention Dialog's own
-	// filename field already uses -- no mid-string cursor). Unused for
-	// other field types.
+	// filename field already uses -- no mid-string cursor, so the caret
+	// is always at the end of the text, where the next rune goes, and is
+	// drawn there while the field has the focus). Backspace removes a
+	// whole rune. Unused for other field types.
 	Text *string
+	// MaxLen, if positive, is the most runes a FieldText may hold; a
+	// rune typed past it is ignored.
+	MaxLen int
+	// Accept, if set, says which typed runes a FieldText lets in, on top
+	// of the control characters, which are never let in.
+	Accept func(rune) bool
 	// Checked is FieldCheckbox's current state; the Form toggles
 	// *Checked in place. Unused for other field types.
 	Checked *bool

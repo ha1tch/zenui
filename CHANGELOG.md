@@ -2,6 +2,25 @@
 
 All notable changes to zenui are recorded here, newest first.
 
+## [0.3.5] - 2026-11-25
+
+A form's text box shows where the typing goes.
+
+### Added
+
+- `FormField.MaxLen` and `FormField.Accept`: a text box of a form can hold at
+  most that many runes, and let in only the runes `Accept` says, as
+  `TextField` can.
+
+### Changed
+
+- A form's text box that has the focus draws a caret at the end of its text,
+  where the next rune goes (it had none, so a box that was waiting for typing
+  looked like one that was not). A text that is longer than the box shows its
+  end, with the caret, and not its start.
+- Backspace in a form's text box removes a whole rune: it removed a byte, so it
+  cut a letter that is not ASCII in two and left text that is not valid UTF-8.
+
 ## [0.3.4] - 2026-11-24
 
 A menu row can have a picture.

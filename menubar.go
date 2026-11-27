@@ -63,6 +63,14 @@ type MenuBar struct {
 	labelRects []Rect
 	labelsEndX int
 
+	// leftInset and rightInset are room the host keeps at the two ends of the strip for
+	// controls of its own (SetInsets): the labels start that far in from the left, and the
+	// right-hand branding ends that far in from the right. labelsDY is how far the labels are
+	// drawn below where they would be (SetLabelsOffset), negative for above.
+	leftInset  int
+	rightInset int
+	labelsDY   int
+
 	// decorX is the left edge of the right-hand branding the last Draw drew,
 	// or the strip's full width when it drew none -- see DecorationX.
 	decorX int
@@ -316,7 +324,10 @@ func (mb *MenuBar) Draw(r Renderer, screenW, screenH, barY, height int, theme Th
 	}
 
 	mb.labelRects = mb.labelRects[:0]
-	x := 12
+	x := 12 + mb.leftInset
+	if mb.labelsDY != 0 {
+		r.Clip(barRect) // a label that is moving does not leave the strip
+	}
 	for i, item := range mb.cfg.Items {
 		w := r.TextWidth(item.Label, 1) + 16
 		rect := Rect{X: x, Y: barY, W: w, H: height}
@@ -329,21 +340,25 @@ func (mb *MenuBar) Draw(r Renderer, screenW, screenH, barY, height int, theme Th
 			textColour = theme.BarSelText
 		}
 		textY := barY + (height-r.LineHeight(1))/2
-		r.DrawText(item.Label, x+8, textY, 1, textColour)
+		r.DrawText(item.Label, x+8, textY+mb.labelsDY, 1, textColour)
 		x += w
+	}
+	if mb.labelsDY != 0 {
+		r.ClipEnd()
 	}
 	mb.labelsEndX = x
 	mb.decorX = screenW
+	brandW := screenW - mb.rightInset // where the branding's own right margin is taken from
 
 	if theme.ShowBarRainbow {
-		drawRainbow(r, mb.labelsEndX, barY, screenW, height)
-		if x0, ok := rainbowGeometry(mb.labelsEndX, screenW, height); ok {
+		drawRainbow(r, mb.labelsEndX, barY, brandW, height)
+		if x0, ok := rainbowGeometry(mb.labelsEndX, brandW, height); ok {
 			// Each lower row leans one pixel further left than the one above.
 			mb.decorX = x0 - (min(RainbowScanlines, height) - 1)
 		}
 	}
 	if theme.ShowZSPLogo {
-		if x0, blockW, blockH, ok := zspLogoGeometry(mb.labelsEndX, screenW, height); ok {
+		if x0, blockW, blockH, ok := zspLogoGeometry(mb.labelsEndX, brandW, height); ok {
 			drawZSPLogo(r, x0, barY, blockW, blockH, mb.logoColours())
 			mb.decorX = x0
 		}
@@ -355,6 +370,21 @@ func (mb *MenuBar) Draw(r Renderer, screenW, screenH, barY, height int, theme Th
 		mb.menu.Draw(r, screenW, screenH, theme)
 	}
 }
+
+// SetInsets keeps left pixels at the strip's left end and right at its right end free for
+// controls of the host's own: the labels start left further in, and the branding (the
+// rainbow or the logo) ends right further in. Both are zero by default, and take effect at
+// the next Draw. A negative value is taken as zero.
+func (mb *MenuBar) SetInsets(left, right int) {
+	mb.leftInset, mb.rightInset = max(0, left), max(0, right)
+}
+
+// SetLabelsOffset draws the labels dy pixels below where they would be (above for a
+// negative dy), cut off at the strip's edges, so a host can slide them out of the strip and
+// something else of its own in. The strip itself, its branding and the dropdowns are not
+// moved, and the labels' hit areas stay where they were: a host that moves the labels does
+// not give the bar input while it does. Zero, the default, draws them in place.
+func (mb *MenuBar) SetLabelsOffset(dy int) { mb.labelsDY = dy }
 
 // LabelsEndX returns the X position just past the last drawn label, valid
 // after the most recent Draw -- for a host that wants to know how much

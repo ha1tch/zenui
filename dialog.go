@@ -1,7 +1,5 @@
 package zenui
 
-import "strings"
-
 // Mode selects the dialog's behaviour.
 type Mode int
 
@@ -40,6 +38,47 @@ type DialogConfig struct {
 	// (e.g. a dropped .zbun), listing its entries; ".." then lands in the
 	// container's directory.
 	StartContainer string
+
+	// Name is the text the name field starts with (a Save's suggested file name,
+	// or an Open's typed path).
+	Name string
+	// FilterSets, if set, gives the person a choice of file types: a selector
+	// beside the name field, and Ctrl+Tab to go to the next. The dialog adds a
+	// last set, "All files", unless NoAllFiles. Filters is the shorthand for a
+	// single set with no choice, and is ignored when FilterSets is set.
+	FilterSets []FilterSet
+	NoAllFiles bool
+	// View is how the person last looked at the folder (hidden files, details,
+	// order, the chosen file type); read it back with Dialog.View to keep it.
+	View View
+	// Recent lists full paths, the most recent first. When it is not empty the
+	// sidebar has a first entry for it, listing the files that pass the chosen
+	// file type; opening one checks that it is still there.
+	Recent []string
+	// Places, if set, replaces the sidebar's favourites (the filesystem's own);
+	// ExtraPlaces adds to them. A Place is a label and a folder.
+	Places      []Place
+	ExtraPlaces []Place
+	// Validate, if set, is asked about the path the person has chosen, in Open
+	// and in Save, before the dialog finishes. A non-empty answer is shown as the
+	// error and the dialog stays open.
+	Validate func(path string) string
+	// NoOverwriteConfirm makes a Save replace an existing file without asking.
+	// By default the dialog asks once: the action button reads REPLACE and Enter
+	// (or the button) confirms, Escape keeps the file.
+	NoOverwriteConfirm bool
+	// Labels are the words the dialog draws, for another language or style.
+	Labels DialogLabels
+	// Scale is the integer text scale (default 2). Width and Height are the
+	// largest the panel grows to, in pixels (default 760 x 560).
+	Scale         int
+	Width, Height int
+	// DoubleClickSeconds is the longest time between the two clicks of a double
+	// click that opens an entry. Zero means half a second; a negative value
+	// means no limit (a second click on the selected row always opens it).
+	// The time is counted from Input.DeltaTime, so a host that does not set it
+	// gets the "no limit" behaviour whatever this says.
+	DoubleClickSeconds float64
 }
 
 // Status is the dialog's lifecycle state.
@@ -89,6 +128,32 @@ type Dialog struct {
 	okRect      Rect
 	cancRect    Rect
 	upRect      Rect
+
+	raw       []Entry // the listing before the view's hidden, file-type and order are applied
+	recent    bool    // the list on show is the recent files
+	typed     bool    // the name field holds the person's own text, not the echo of the selection
+	ed        lineEdit
+	hint      string // a note in the status line (matches of a completion, and so on)
+	confirm   string // the path a Save is asking to replace
+	sets      []FilterSet
+	view      View
+	custom    string // a pattern typed in the name field (*.tap) that limits the list
+	popup     bool   // the file-type list is open
+	popupSel  int
+	infoChars int // the longest Entry.Detail on show, in runes
+	clock     float64
+	lastClick float64
+	lastIdx   int
+	textW     func(string) int
+
+	filterRect  Rect
+	headRect    Rect
+	hiddenRect  Rect
+	detailsRect Rect
+	statusRect  Rect
+	popupRect   Rect
+	popupRows   []Rect
+	cols        []dlgCol
 }
 
 // NewDialog creates a dialog from cfg, applying defaults and loading the
@@ -105,8 +170,26 @@ func NewDialog(cfg DialogConfig) *Dialog {
 			cfg.Title = "Open"
 		}
 	}
-	d := &Dialog{cfg: cfg, fs: cfg.FS, sel: -1}
-	d.places = d.fs.Places()
+	d := &Dialog{cfg: cfg, fs: cfg.FS, sel: -1, lastIdx: -1}
+	d.sets = buildSets(cfg)
+	d.view = cfg.View
+	if len(d.sets) > 0 {
+		d.view.Filter = clampInt(d.view.Filter, 0, len(d.sets)-1)
+	} else {
+		d.view.Filter = 0
+	}
+	if !d.hiddenSupported() {
+		d.view.ShowHidden = false
+	}
+	if cfg.Places != nil {
+		d.places = append(d.places, cfg.Places...)
+	} else {
+		d.places = d.fs.Places()
+	}
+	d.places = append(d.places, cfg.ExtraPlaces...)
+	if len(cfg.Recent) > 0 {
+		d.places = append([]Place{{Label: pick(cfg.Labels.Recent, "Recent"), Path: recentPlace}}, d.places...)
+	}
 	start := cfg.StartDir
 	if start == "" {
 		start = d.fs.UserHome()
@@ -122,6 +205,9 @@ func NewDialog(cfg DialogConfig) *Dialog {
 			d.setContainer(abs)
 		}
 	}
+	if cfg.Name != "" {
+		d.setName(cfg.Name, true)
+	}
 	return d
 }
 
@@ -133,126 +219,3 @@ func (d *Dialog) Status() Status { return d.status }
 
 // Dir returns the directory currently being browsed.
 func (d *Dialog) Dir() string { return d.dir }
-
-// setDir loads dir's listing (filtered and sorted) and resets selection/scroll.
-func (d *Dialog) setDir(dir string) {
-	es, err := d.fs.ReadDir(dir)
-	if err != nil {
-		d.err = err.Error()
-		return
-	}
-	d.err = ""
-	d.dir = dir
-	d.container = "" // leaving any container
-	filtered := es[:0]
-	for _, e := range es {
-		// Containers are shown regardless of the filename filter so the user can
-		// always descend into them; directories likewise.
-		if e.IsDir || e.IsContainer || matchFilter(e.Name, d.cfg.Filters) {
-			filtered = append(filtered, e)
-		}
-	}
-	d.entries = sortEntries(filtered)
-	d.sel = -1
-	d.scroll = 0
-}
-
-// setContainer enters a container file (e.g. a .zbun), listing its entries. The
-// directory context (d.dir) is retained so goUp can climb back out.
-func (d *Dialog) setContainer(path string) {
-	es, err := d.fs.ReadContainer(path)
-	if err != nil {
-		d.err = err.Error()
-		return
-	}
-	d.err = ""
-	d.container = path
-	d.entries = sortEntries(es)
-	d.sel = -1
-	d.scroll = 0
-}
-
-// inContainer reports whether the dialog is currently browsing inside a
-// container file rather than a directory.
-func (d *Dialog) inContainer() bool { return d.container != "" }
-
-// canAccept reports whether the action button is currently enabled.
-func (d *Dialog) canAccept() bool {
-	if d.cfg.Mode == ModeSave {
-		return strings.TrimSpace(d.name) != ""
-	}
-	// Open: need a selected entry that is not a directory or a container (those
-	// are for navigating into, not opening directly).
-	if d.sel < 0 || d.sel >= len(d.entries) {
-		return false
-	}
-	e := d.entries[d.sel]
-	return !e.IsDir && !e.IsContainer
-}
-
-// accept finalises the dialog with the chosen path. Inside a container the
-// result is "<containerpath>#<entryname>" so the caller can locate the entry
-// within the archive; otherwise it is a normal filesystem path.
-func (d *Dialog) accept() {
-	name := strings.TrimSpace(d.name)
-	if d.cfg.Mode == ModeOpen {
-		if d.sel < 0 || d.sel >= len(d.entries) {
-			return
-		}
-		e := d.entries[d.sel]
-		if e.IsDir || e.IsContainer {
-			return
-		}
-		name = e.Name
-	}
-	if name == "" {
-		return
-	}
-	if d.inContainer() {
-		d.result = d.container + "#" + name
-		d.status = Accepted
-		return
-	}
-	if d.cfg.Mode == ModeSave && d.cfg.DefaultExt != "" && !hasExt(name) {
-		name = name + "." + strings.TrimPrefix(d.cfg.DefaultExt, ".")
-	}
-	d.result = d.fs.Join(d.dir, name)
-	d.status = Accepted
-}
-
-// openSelection enters a directory or container, or accepts a file.
-func (d *Dialog) openSelection() {
-	if d.sel < 0 || d.sel >= len(d.entries) {
-		return
-	}
-	e := d.entries[d.sel]
-	switch {
-	case e.IsContainer && !d.inContainer():
-		d.setContainer(d.fs.Join(d.dir, e.Name))
-		return
-	case e.IsDir:
-		d.setDir(d.fs.Join(d.dir, e.Name))
-		return
-	}
-	if d.cfg.Mode == ModeOpen {
-		d.accept()
-	} else {
-		d.name = e.Name
-	}
-}
-
-// goUp exits a container back to its directory, or navigates to the parent
-// directory when already at directory level.
-func (d *Dialog) goUp() {
-	if d.inContainer() {
-		d.setDir(d.dir)
-		return
-	}
-	d.setDir(d.fs.Dir(d.dir))
-}
-
-func hasExt(name string) bool {
-	dot := strings.LastIndexByte(name, '.')
-	slash := strings.LastIndexByte(name, '/')
-	return dot > slash && dot < len(name)-1
-}

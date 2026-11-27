@@ -157,28 +157,6 @@ func (r Renderer) Clip(rc zenui.Rect) {
 }
 func (r Renderer) ClipEnd() { rl.EndScissorMode() }
 
-// keymap pairs each raylib key a zenui widget reacts to with its logical
-// zenui.Key -- fixed by the two APIs' own vocabularies, so it's data here
-// rather than a chain of repeated if-statements.
-var keymap = []struct {
-	rlKey int32
-	k     zenui.Key
-}{
-	{rl.KeyEnter, zenui.KeyEnter},
-	{rl.KeyKpEnter, zenui.KeyEnter},
-	{rl.KeyEscape, zenui.KeyEscape},
-	{rl.KeyBackspace, zenui.KeyBackspace},
-	{rl.KeyUp, zenui.KeyUp},
-	{rl.KeyDown, zenui.KeyDown},
-	{rl.KeyLeft, zenui.KeyLeft},
-	{rl.KeyRight, zenui.KeyRight},
-	{rl.KeyPageUp, zenui.KeyPageUp},
-	{rl.KeyPageDown, zenui.KeyPageDown},
-	{rl.KeyTab, zenui.KeyTab},
-	{rl.KeyHome, zenui.KeyHome},
-	{rl.KeyEnd, zenui.KeyEnd},
-}
-
 // Input snapshots raylib's current-frame input into a zenui.Input.
 func Input() zenui.Input {
 	in := zenui.Input{
@@ -191,17 +169,20 @@ func Input() zenui.Input {
 		WheelY:            rl.GetMouseWheelMove(),
 		DeltaTime:         rl.GetFrameTime(),
 	}
+	var chars []rune
 	for {
 		ch := rl.GetCharPressed()
 		if ch == 0 {
 			break
 		}
-		in.Chars = append(in.Chars, ch)
+		chars = append(chars, ch)
 	}
-	for _, m := range keymap {
-		if rl.IsKeyPressed(m.rlKey) {
-			in.Keys = append(in.Keys, m.k)
-		}
-	}
+	keyboard{
+		Down:      rl.IsKeyDown,
+		Pressed:   rl.IsKeyPressed,
+		Repeat:    rl.IsKeyPressedRepeat,
+		Chars:     chars,
+		Clipboard: rl.GetClipboardText,
+	}.translate(&in, rl.SetClipboardText)
 	return in
 }

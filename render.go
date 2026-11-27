@@ -66,6 +66,7 @@ const (
 	KeyTab
 	KeyHome
 	KeyEnd
+	KeyDelete
 )
 
 // Input is the per-frame snapshot of pointer and keyboard state the host hands
@@ -86,8 +87,33 @@ type Input struct {
 
 	// Chars are the printable runes typed this frame (for the filename field).
 	Chars []rune
-	// Keys are the logical keys pressed this frame (edge-triggered).
+	// Keys are the logical keys pressed this frame (edge-triggered). A host that
+	// has key repeat puts a key here again for each repeat, so that holding
+	// Backspace or an arrow goes on editing or moving.
 	Keys []Key
+	// Shift, Ctrl and Alt say that the modifier is held. Ctrl is the shortcut
+	// key of the host's system: Control, or Command on a Mac.
+	Shift, Ctrl, Alt bool
+	// CtrlChars are the letters pressed this frame while Ctrl was held, lower
+	// case: the shortcuts (Ctrl+L, Ctrl+H, Ctrl+C...) a widget may answer. The
+	// paste shortcut is not here: it arrives as Paste.
+	CtrlChars []rune
+	// Paste is the text the person pasted this frame (the host reads its
+	// clipboard when the paste shortcut is pressed), or empty.
+	Paste string
+	// SetClipboard, if set, puts text on the host's clipboard: a widget calls it
+	// for Ctrl+C and Ctrl+X. Nil, and a copy has nowhere to go.
+	SetClipboard func(string)
+}
+
+// ctrlChar reports whether the letter c was pressed with Ctrl held this frame.
+func (in Input) ctrlChar(c rune) bool {
+	for _, cc := range in.CtrlChars {
+		if cc == c {
+			return true
+		}
+	}
+	return false
 }
 
 // pressed reports whether key k is among the keys pressed this frame.

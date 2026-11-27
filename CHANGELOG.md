@@ -2,6 +2,98 @@
 
 All notable changes to zenui are recorded here, newest first.
 
+## [0.4.0] - 2026-11-27
+
+The file dialog takes typed and pasted paths and a host can shape it; the edit
+boxes edit.
+
+### Added
+
+- `MenuBar.SetInsets(left, right)` keeps room at the two ends of the bar for a host's own buttons:
+  the labels start `left` pixels further in and the logo or rainbow is `right` pixels further from the
+  edge (and left out, as when the window is narrow, if it no longer fits). `MenuBar.SetLabelsOffset(dy)`
+  draws the labels `dy` pixels lower, clipped to the strip, for sliding them out of it and back; the
+  layout does not move. Both default to 0, which changes nothing.
+- `Item.Box`: an item that is not a `Toggle` can still draw the checkbox glyph. Choosing it
+  closes the menu as any item does, and the host changes the bool `Checked` points to. For an
+  on/off option whose choice cannot leave the menu open, as one that resizes the window the menu
+  hangs from; before, such an option could only be a tick.
+- One single-line editor behind every edit box (`TextField`, a form's text box
+  and the dialog's name field): a caret and a selection, by keys, by the mouse
+  and by dragging; Left, Right, Home, End, Delete and Backspace, with Ctrl or
+  Alt to go by word; Ctrl+A to select all; Ctrl+C and Ctrl+X to copy and cut;
+  paste at the caret over the selection.
+- `Input` gained `Shift`, `Ctrl`, `Alt`, `CtrlChars`, `Paste` and
+  `SetClipboard`. `Ctrl` is the shortcut modifier: Control, or Command on a
+  Mac.
+- `zenuiraylib` reads them: Ctrl or Cmd with C, X, V and A; Shift+Insert to
+  paste, Ctrl+Insert to copy, Shift+Delete to cut; Cmd+Left and Cmd+Right as
+  Home and End; Alt (Option) to go by word; key repeat for the editing keys.
+  A character typed with AltGr stays text, and is not taken for a shortcut.
+  `zenuiraylib/keys_test.go` tests all of it without a display.
+- The Open and Save dialog has a name field that is always being edited. Type
+  or paste a path: absolute, `~`, relative to the folder on show, with `..`,
+  in quotes, as a `file://` address, or in other letter case than the file's
+  own. A folder is gone into, a bundle is entered, a file is accepted, and what
+  cannot be is said in the status line. A name inside a bundle names an entry.
+- Tab completes the name (a single match, what several share, a hint of how
+  many match; a folder gets its separator), and typing selects the matching
+  row. A typed pattern such as `*.tap` limits the list; `*` takes the limit
+  away.
+- `DialogConfig.FilterSets` gives a choice of file types with a selector beside
+  the field and Ctrl+Tab (Ctrl+Shift+Tab back); the dialog adds "All files"
+  unless `NoAllFiles`. `FilterSet.DefaultExt` is the extension a Save adds
+  while that set is chosen.
+- `View` (hidden files, details, sort key and direction, chosen file type) is
+  what the person chose about how to look at a folder: pass it in
+  `DialogConfig.View` and read it back with `Dialog.View`. Ctrl+H shows or hides
+  the hidden files, Ctrl+D the details (one row per entry, with size, date and
+  `Entry.Detail` columns whose heads sort), Alt+Up goes to the parent folder.
+  Names sort in natural order: disk2 before disk10.
+- `DialogConfig.Recent` adds a Recent place to the sidebar; `Places` and
+  `ExtraPlaces` shape the sidebar; `Name` sets the starting text; `Validate`
+  can refuse a path with a message; `Labels` (`DialogLabels`) holds every word
+  the dialog draws; `Scale`, `Width` and `Height` size it; `DoubleClickSeconds`
+  is the longest time between the two clicks of a double click.
+- `Entry` gained `Size`, `ModTime`, `Hidden`, `Detail` and `Path`. `HiddenAware`
+  is the optional interface of a filesystem that can list hidden entries
+  (`ReadDirAll`); `OSFS` implements it, fills in size and time, and counts a
+  link to a folder as a folder.
+
+### Changed
+
+- A menu's checks and icons share one left column. A menu with checkboxes or
+  checkmarks in some rows and `Item.Icon`s in others drew them in two columns,
+  so the two kinds of indicator sat at different indents down the same menu,
+  and an icon cell exactly a line wide left sprites touching their labels. Now
+  there is one column, a line and a half wide, in which a check and an icon are
+  each centred, and the labels start after it. A menu with only icons, or only
+  checks, is a half line wider than it was, for the room before the label. An item that has both a check and an icon still gets two
+  columns side by side.
+- The cross in a checked menu checkbox is centred. Its two diagonals were drawn as one pixel lines
+  by the graphics layer, which rounded them differently, so one sat a pixel to the left of where it
+  should and the cross was off centre; they are now drawn a pixel at a time, mirror images of each
+  other, corner to corner of the box.
+- A menu's checkbox and checkmark are a fifth larger: 0.6 of a line high, where
+  they were half a line, so they read beside the label's glyphs (10 pixels
+  where there were 8, at a 16 pixel line), which is why the column above is
+  needed by checks alone too. The form's checkbox is unchanged.
+- A Save asks before it replaces a file that is there: the button reads
+  REPLACE, and Enter or the button confirms, Escape keeps the file.
+  `DialogConfig.NoOverwriteConfirm` gives the old behaviour.
+- An Open's name field is where a path is typed, and Enter on it opens what it
+  names. With nothing typed, Enter still opens the selected row.
+- A double click needs its two clicks within half a second when the host
+  gives `Input.DeltaTime` (the raylib adapter does), and on the same row; it
+  was any second click on the selected row, however long after, so a row
+  selected with the keys opened on a single click. A host that sets no
+  `DeltaTime` has no time limit.
+- The list is in natural order (disk2 before disk10), not plain alphabetical.
+- `OSFS.ReadDir` is the dialog's old listing without the hidden entries; it now
+  has `ReadDirAll` beside it.
+
+Closes T-09, T-10 and T-11 (`docs/RESOLVED.md`).
+
 ## [0.3.5] - 2026-11-25
 
 A form's text box shows where the typing goes.

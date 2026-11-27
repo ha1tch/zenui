@@ -87,14 +87,15 @@ func TestCheckboxDrawsCrossOnlyWhenChecked(t *testing.T) {
 	m := NewMenu(MenuConfig{Items: []Item{{Label: "X", Checked: &checked, Toggle: true}}})
 	m.Draw(r, 800, 600, DefaultTheme())
 
-	lineCount := 0
+	// the cross is single pixels, the two diagonals of the box (menu_box_test.go checks them closer)
+	pixels := 0
 	for _, c := range *r.calls {
-		if c.kind == "line" {
-			lineCount++
+		if c.kind == "fill" && c.rect.W == 1 && c.rect.H == 1 {
+			pixels++
 		}
 	}
-	if lineCount != 2 {
-		t.Errorf("checked checkbox: line count = %d, want 2 (the cross's two diagonals)", lineCount)
+	if pixels < 8 {
+		t.Errorf("checked checkbox: %d cross pixels, want the two diagonals of the box", pixels)
 	}
 
 	unchecked := false
@@ -103,8 +104,8 @@ func TestCheckboxDrawsCrossOnlyWhenChecked(t *testing.T) {
 	m2.Draw(r2, 800, 600, DefaultTheme())
 
 	for _, c := range *r2.calls {
-		if c.kind == "line" {
-			t.Error("unchecked checkbox should draw no cross, found a line")
+		if c.kind == "fill" && c.rect.W == 1 && c.rect.H == 1 {
+			t.Error("unchecked checkbox should draw no cross, found a pixel")
 		}
 	}
 }
@@ -488,10 +489,11 @@ func TestSpectrumCheckboxUsesBlueWhenChecked(t *testing.T) {
 		if c.kind == "stroke" && c.col == wantBlue {
 			foundBlueStroke = true
 		}
-		if c.kind == "line" && c.col == wantBlue {
+		// the cross is single pixels
+		if c.kind == "fill" && c.rect.W == 1 && c.rect.H == 1 && c.col == wantBlue {
 			foundBlueLine = true
 		}
-		if c.kind == "line" && c.col == theme.CheckmarkColour {
+		if c.kind == "fill" && c.rect.W == 1 && c.rect.H == 1 && c.col == theme.CheckmarkColour {
 			t.Error("checkbox cross should use CheckboxColour (blue), not CheckmarkColour (green) -- the two indicator kinds should differ")
 		}
 	}

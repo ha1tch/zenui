@@ -18,6 +18,11 @@ type Item struct {
 	// select-and-close behaviour every item has always had, checkmark
 	// or not.
 	Toggle bool
+	// Box draws the checkbox glyph (an outlined box, crossed when checked) for an item that is not
+	// a Toggle: choosing it still closes the menu and flips nothing here, the host changes the
+	// bool Checked points to. For an on/off option whose choice cannot leave the menu open, as one
+	// that resizes the window the menu hangs from. Toggle implies the box already.
+	Box bool
 	// SubItems, if non-empty, makes this item open a nested submenu on
 	// hover (matching how MenuBar's own top-level labels open their
 	// dropdowns) instead of being itself selectable -- hovering it
@@ -90,8 +95,9 @@ type Menu struct {
 	bounds      Rect
 	itemRects   []Rect
 	padX        int
-	iconGutter  int  // extra left space, after the checkGutter, reserved for Item.Icon; 0 if no item in this menu has one
-	checkGutter int  // extra left space reserved for a checkmark/checkbox indicator; 0 if no item in this menu uses Checked
+	iconGutter  int  // extra left space, after the checkGutter, reserved for Item.Icon: only for an item that has both a check and an icon; otherwise 0
+	checkGutter int  // the left column of the indicators: a check's, an icon's, or both in one (a line and a half wide); 0 if no item has either
+	iconCellX   int  // where an icon's square cell starts, from the left padding: centred in checkGutter, or after it when iconGutter is used
 	hasSubItems bool // true if any item has SubItems, reserving right-edge arrow space
 
 	// Submenu state: at most one open at a time, keyed by which parent

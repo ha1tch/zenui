@@ -1,6 +1,7 @@
 package zenui
 
 import (
+	"path"
 	"strings"
 	"testing"
 )
@@ -12,7 +13,23 @@ type memFS struct {
 	home       string
 }
 
+// ReadDir lists dir as the real filesystem does: without the hidden entries.
 func (m *memFS) ReadDir(dir string) ([]Entry, error) {
+	all, err := m.ReadDirAll(dir)
+	if err != nil {
+		return nil, err
+	}
+	out := all[:0]
+	for _, e := range all {
+		if !e.Hidden {
+			out = append(out, e)
+		}
+	}
+	return out, nil
+}
+
+// ReadDirAll makes memFS a HiddenAware filesystem.
+func (m *memFS) ReadDirAll(dir string) ([]Entry, error) {
 	es, ok := m.dirs[dir]
 	if !ok {
 		return nil, &notExist{dir}
@@ -21,9 +38,14 @@ func (m *memFS) ReadDir(dir string) ([]Entry, error) {
 	copy(out, es)
 	return out, nil
 }
-func (m *memFS) Abs(p string) (string, error) { return p, nil }
+func (m *memFS) Abs(p string) (string, error) {
+	if strings.HasPrefix(p, "/") {
+		return path.Clean(p), nil
+	}
+	return p, nil
+}
 func (m *memFS) Join(elem ...string) string {
-	return strings.TrimRight(strings.Join(elem, "/"), "/")
+	return path.Join(elem...)
 }
 func (m *memFS) Dir(p string) string {
 	i := strings.LastIndexByte(p, '/')

@@ -34,18 +34,32 @@ func (m *Menu) layout(r Renderer, screenW, screenH int, theme Theme) {
 	// indicator, sized to one text cell -- but only if at least one
 	// item in this menu actually uses Checked, so a menu with none
 	// draws exactly as it did before this field existed.
-	m.checkGutter, m.iconGutter = 0, 0
+	//
+	// A menu with both checks and icons has ONE column for them, a line
+	// and a half wide, in which a checkbox and an icon are each centred:
+	// two columns, one for the checks and one for the icons, put the two
+	// kinds of indicator at different indents down the same menu, and an
+	// icon cell exactly a line wide left the sprites touching their
+	// labels. Only an item that has both a check and an icon keeps the
+	// two columns, side by side.
+	m.checkGutter, m.iconGutter, m.iconCellX = 0, 0, 0
 	m.hasSubItems = false
+	hasCheck, hasIcon, both := false, false, false
 	for _, it := range m.cfg.Items {
-		if it.Checked != nil {
-			m.checkGutter = lh
-		}
-		if it.Icon != nil && !it.Separator && !it.Title {
-			m.iconGutter = lh
-		}
+		c := it.Checked != nil
+		i := it.Icon != nil && !it.Separator && !it.Title
+		hasCheck, hasIcon, both = hasCheck || c, hasIcon || i, both || (c && i)
 		if len(it.SubItems) > 0 {
 			m.hasSubItems = true
 		}
+	}
+	switch {
+	case both:
+		m.checkGutter, m.iconGutter, m.iconCellX = lh, lh, lh
+	case hasIcon || hasCheck:
+		// one column for either kind, wide enough for the larger box and a gap before the label
+		m.checkGutter = lh + lh/2
+		m.iconCellX = (m.checkGutter - lh) / 2
 	}
 	// arrowGutter reserves right-edge space for a submenu arrow, same
 	// sizing logic as checkGutter.
@@ -167,10 +181,10 @@ func (m *Menu) Draw(r Renderer, screenW, screenH int, theme Theme) {
 		}
 
 		if it.Checked != nil {
-			drawCheckIndicator(r, rec, m.padX, m.checkGutter, lh, *it.Checked, it.Toggle, col, theme)
+			drawCheckIndicator(r, rec, m.padX, m.checkGutter, lh, *it.Checked, it.Toggle || it.Box, col, theme)
 		}
-		if it.Icon != nil && m.iconGutter > 0 {
-			it.Icon(r, Rect{rec.X + m.padX + m.checkGutter, rec.Y + (rec.H-lh)/2, lh, lh}, col)
+		if it.Icon != nil {
+			it.Icon(r, Rect{rec.X + m.padX + m.iconCellX, rec.Y + (rec.H-lh)/2, lh, lh}, col)
 		}
 		textX := rec.X + m.padX + m.checkGutter + m.iconGutter
 		r.DrawText(it.Label, textX, rec.Y+(rec.H-lh)/2, m.scale, col)
@@ -206,7 +220,9 @@ func (m *Menu) Draw(r Renderer, screenW, screenH int, theme Theme) {
 // rather than a font character, since the bundled bitmap fonts don't
 // reliably have dedicated check/cross glyphs.
 func drawCheckIndicator(r Renderer, rec Rect, padX, gutter, lh int, checked, toggle bool, col Colour, theme Theme) {
-	size := lh / 2
+	// A fifth larger than half a line (0.6 of it, rounded): the half-line box of earlier
+	// versions looked small beside the label's glyphs.
+	size := (lh*3 + 2) / 5
 	if size < 4 {
 		size = 4
 	}
@@ -235,8 +251,14 @@ func drawCheckIndicator(r Renderer, rec Rect, padX, gutter, lh int, checked, tog
 		}
 		r.StrokeRect(Rect{X: x, Y: y, W: size, H: size}, boxColour, 1)
 		if checked {
-			r.DrawLine(x, y, x+size-1, y+size-1, 1, checkedColour)
-			r.DrawLine(x+size-1, y, x, y+size-1, 1, checkedColour)
+			// Corner to corner, a pixel at a time. A one pixel DrawLine is rasterised by the
+			// graphics layer, which rounds the two diagonals differently (one came out a pixel
+			// to the left of where it should be, so the cross sat off centre); pixels placed
+			// by hand are the mirror images of each other whatever draws them.
+			for i := 0; i < size; i++ {
+				r.FillRect(Rect{X: x + i, Y: y + i, W: 1, H: 1}, checkedColour)
+				r.FillRect(Rect{X: x + size - 1 - i, Y: y + i, W: 1, H: 1}, checkedColour)
+			}
 		}
 		return
 	}

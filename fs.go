@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 )
 
 // Entry is one item in a directory listing.
@@ -19,6 +20,20 @@ type Entry struct {
 	// Meta holds optional short "key: value" lines describing the entry, shown in
 	// the preview pane (e.g. frame count, dimensions, a label). May be nil.
 	Meta []MetaLine
+	// Size is the file's size in bytes and ModTime when it was last changed; the
+	// details view shows them (a zero ModTime means the filesystem did not say).
+	Size    int64
+	ModTime time.Time
+	// Hidden marks an entry that is hidden by the system's convention (a name
+	// that begins with a dot); the dialog lists it only when the person asks.
+	// A filesystem that does not implement HiddenAware never lists one.
+	Hidden bool
+	// Detail is a short text of the host's own for the details view's Info
+	// column (e.g. "48K, 2 blocks"). May be empty.
+	Detail string
+	// Path is the full path of the entry, for a listing that does not come from
+	// one folder, such as the recent files. Empty in a folder's own listing.
+	Path string
 }
 
 // MetaLine is one labelled fact about an entry, for the preview pane.
@@ -70,6 +85,14 @@ type ContainerHandler interface {
 	ReadContainer(path string) ([]Entry, error)
 }
 
+// HiddenAware is the optional interface of a filesystem that can list its hidden
+// entries as well. The dialog uses it, when it is there, for the switch that shows
+// hidden files: ReadDir keeps hiding them, ReadDirAll lists them with Entry.Hidden
+// set, and the dialog applies the person's choice itself.
+type HiddenAware interface {
+	ReadDirAll(dir string) ([]Entry, error)
+}
+
 // OSFS is the real filesystem, backed by the os and path/filepath packages. Set
 // Containers to enable browsing into archive files.
 type OSFS struct {
@@ -89,7 +112,24 @@ func (fs OSFS) ReadContainer(path string) ([]Entry, error) {
 	return fs.Containers.ReadContainer(path)
 }
 
+// ReadDir lists dir without its hidden entries (those whose names begin with a dot).
 func (fs OSFS) ReadDir(dir string) ([]Entry, error) {
+	all, err := fs.ReadDirAll(dir)
+	if err != nil {
+		return nil, err
+	}
+	out := all[:0]
+	for _, e := range all {
+		if !e.Hidden {
+			out = append(out, e)
+		}
+	}
+	return out, nil
+}
+
+// ReadDirAll lists dir with the hidden entries, marked, and each entry's size and
+// modification time. A link to a folder counts as a folder.
+func (fs OSFS) ReadDirAll(dir string) ([]Entry, error) {
 	des, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, err
@@ -97,12 +137,18 @@ func (fs OSFS) ReadDir(dir string) ([]Entry, error) {
 	out := make([]Entry, 0, len(des))
 	for _, de := range des {
 		name := de.Name()
-		if strings.HasPrefix(name, ".") {
-			continue // hide dotfiles by default
+		e := Entry{Name: name, IsDir: de.IsDir(), Hidden: strings.HasPrefix(name, ".")}
+		full := filepath.Join(dir, name)
+		if de.Type()&os.ModeSymlink != 0 {
+			if fi, err := os.Stat(full); err == nil && fi.IsDir() {
+				e.IsDir = true
+			}
 		}
-		e := Entry{Name: name, IsDir: de.IsDir()}
-		if !de.IsDir() && fs.Containers != nil {
-			e.IsContainer = fs.Containers.IsContainer(filepath.Join(dir, name))
+		if fi, err := de.Info(); err == nil && !e.IsDir {
+			e.Size, e.ModTime = fi.Size(), fi.ModTime()
+		}
+		if !e.IsDir && fs.Containers != nil {
+			e.IsContainer = fs.Containers.IsContainer(full)
 		}
 		out = append(out, e)
 	}

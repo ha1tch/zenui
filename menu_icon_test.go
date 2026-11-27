@@ -2,7 +2,8 @@ package zenui
 
 import "testing"
 
-// An item's Icon is drawn in a gutter of its own between the checkmark's and the label.
+// An item's Icon is drawn in the same left column as a checkmark or a checkbox, centred in it, with
+// room before the label.
 
 func TestIconGetsASquareCellInsideItsRowAndTheMenuGrowsByIt(t *testing.T) {
 	plain := NewMenu(MenuConfig{Items: []Item{{Label: "Pause"}, {Label: "Reset"}}})
@@ -26,8 +27,11 @@ func TestIconGetsASquareCellInsideItsRowAndTheMenuGrowsByIt(t *testing.T) {
 	if got[0].Y < row.Y || got[0].Y+got[0].H > row.Y+row.H {
 		t.Errorf("cell %v is not inside its row %v", got[0], row)
 	}
-	if grew := m.bounds.W - plain.bounds.W; grew != lh {
-		t.Errorf("the menu is %d wider with an icon, want %d (one gutter)", grew, lh)
+	if grew := m.bounds.W - plain.bounds.W; grew != lh+lh/2 {
+		t.Errorf("the menu is %d wider with an icon, want %d (one column, a line and a half)", grew, lh+lh/2)
+	}
+	if want := lh / 4; got[0].X-(m.bounds.X+m.padX) != want {
+		t.Errorf("the cell starts %d into the column, want %d (centred in it)", got[0].X-(m.bounds.X+m.padX), want)
 	}
 }
 

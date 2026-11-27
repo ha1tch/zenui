@@ -1,7 +1,5 @@
 package zenui
 
-import "unicode/utf8"
-
 // layout computes each column's width and each row's height from the
 // fields that occupy them (snapped up to gridSize), then positions every
 // field's rect from those cumulative offsets. A single-column field's
@@ -172,19 +170,17 @@ func (f *Form) Draw(r Renderer, screenW, screenH int, theme Theme) {
 			if fld.Text != nil {
 				text = *fld.Text
 			}
-			// A text that does not fit shows its end, where the caret is
-			// and the next rune goes, as TextField does.
+			// A text that does not fit shows the part with the caret in it (its
+			// end, while the caret is there), as TextField does.
 			pad, caretW := cellPad/2, max(1, lh/8)
 			textW := func(s string) int { return r.TextWidth(s, f.scale) }
+			f.textW = textW
 			runes := []rune(text)
-			shown := string(runes[startFor(runes, len(runes), rec.W-2*pad-caretW-1, textW):])
-			r.Clip(rec)
-			r.DrawText(shown, rec.X+pad, rec.Y+(rec.H-lh)/2, f.scale, col)
-			r.ClipEnd()
+			ed := f.edit(i)
+			ed.clamp(len(runes))
+			start := ed.view(runes, rec.W-2*pad-caretW-1, textW)
+			ed.drawText(r, theme, f.textArea(rec), runes, start, f.scale, col, focused && !fld.Disabled)
 			if focused {
-				if !fld.Disabled {
-					r.FillRect(Rect{X: rec.X + pad + textW(shown), Y: rec.Y + (rec.H-lh)/2, W: caretW, H: lh}, col)
-				}
 				drawBorder(r, rec, theme.SelFill, 1, false)
 			}
 		}
@@ -201,6 +197,7 @@ func (f *Form) Draw(r Renderer, screenW, screenH int, theme Theme) {
 func (f *Form) Update(in Input) Status {
 	if in.pressed(KeyTab) {
 		f.focusNext()
+		f.caretToEnd() // the caret goes to the end of the box that has the focus now
 	}
 
 	if in.MousePressed {
@@ -222,18 +219,16 @@ func (f *Form) Update(in Input) Status {
 	if f.focus >= 0 && f.focus < len(f.cfg.Fields) {
 		fld := f.cfg.Fields[f.focus]
 		if fld.Type == FieldText && fld.Text != nil {
-			if in.pressed(KeyBackspace) && *fld.Text != "" {
-				_, n := utf8.DecodeLastRuneInString(*fld.Text)
-				*fld.Text = (*fld.Text)[:len(*fld.Text)-n]
+			ed := f.edit(f.focus)
+			runes := []rune(*fld.Text)
+			ed.clamp(len(runes))
+			if f.textW != nil && f.focus < len(f.fieldRects) {
+				// a press in the box puts the caret there, a drag selects, the release ends it
+				rec := f.fieldRects[f.focus]
+				ed.pointer(runes, in, rec, f.textArea(rec), f.textW)
 			}
-			for _, r := range in.Chars {
-				if r < 0x20 || r == 0x7f || (fld.Accept != nil && !fld.Accept(r)) {
-					continue
-				}
-				if fld.MaxLen > 0 && utf8.RuneCountInString(*fld.Text) >= fld.MaxLen {
-					break
-				}
-				*fld.Text += string(r)
+			if text, changed := ed.edit(*fld.Text, in, editLimits{MaxLen: fld.MaxLen, Accept: fld.Accept}); changed {
+				*fld.Text = text
 			}
 		}
 	}

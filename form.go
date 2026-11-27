@@ -102,6 +102,11 @@ type Form struct {
 	status Status
 	focus  int // index into cfg.Fields of the focused field, or -1
 
+	// edits is the caret, selection and scroll of each text box, by field index; textW
+	// is the text measure of the last Draw, which a press needs to find its caret.
+	edits []lineEdit
+	textW func(string) int
+
 	bounds     Rect
 	fieldRects []Rect // one per field, screen coordinates, cached from the last Draw
 }
@@ -149,3 +154,27 @@ func (f *Form) FieldRect(i int) Rect {
 // Draw -- for a host (Modal) that needs to know how much space the form
 // actually occupied.
 func (f *Form) Bounds() Rect { return f.bounds }
+
+// edit is the editing state of field i, made when first wanted.
+func (f *Form) edit(i int) *lineEdit {
+	if len(f.edits) != len(f.cfg.Fields) {
+		f.edits = make([]lineEdit, len(f.cfg.Fields))
+	}
+	return &f.edits[i]
+}
+
+// textArea is the part of a text box's rectangle its text is drawn in.
+func (f *Form) textArea(rec Rect) Rect {
+	pad := f.gridSize / 4
+	return Rect{X: rec.X + pad, Y: rec.Y, W: rec.W - pad, H: rec.H}
+}
+
+// caretToEnd puts the caret of the focused text box at the end of its text.
+func (f *Form) caretToEnd() {
+	if f.focus < 0 || f.focus >= len(f.cfg.Fields) {
+		return
+	}
+	if fld := f.cfg.Fields[f.focus]; fld.Type == FieldText && fld.Text != nil {
+		f.edit(f.focus).toEnd(len([]rune(*fld.Text)))
+	}
+}

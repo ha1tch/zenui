@@ -67,7 +67,7 @@ const (
 // fades to the next random quartet as any other does, and another run begins.
 const (
 	zspLogoRun       = 10
-	zspLogoFixedHold = 3.0
+	zspLogoFixedHold = 6.0
 )
 
 var zspLogoSpectrum = [zspLogoTeeth]int{zxpalette.Red, zxpalette.Yellow, zxpalette.Green, zxpalette.Cyan}

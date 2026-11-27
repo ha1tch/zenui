@@ -2,6 +2,14 @@
 
 All notable changes to zenui are recorded here, newest first.
 
+## [Unreleased]
+
+### Changed
+
+- The ZSP logo's Spectrum quartet (red, yellow, green, cyan) holds for six seconds, not three, so that
+  it can be seen: a run is ten cycles of a second and a half, then its six seconds and half-second fade,
+  twenty-one and a half seconds in all.
+
 ## [0.4.0] - 2026-11-27
 
 The file dialog takes typed and pasted paths and a host can shape it; the edit

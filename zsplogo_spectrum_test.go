@@ -14,8 +14,8 @@ func TestZSPLogoSpectrumQuartetIsTheRainbowInItsOrder(t *testing.T) {
 	if zspLogoSpectrum != want {
 		t.Errorf("zspLogoSpectrum = %v, want red, yellow, green, cyan %v", zspLogoSpectrum, want)
 	}
-	if zspLogoRun != 10 || zspLogoFixedHold != 3.0 {
-		t.Errorf("the run is %d quartets and the Spectrum's holds %v s, want 10 and 3", zspLogoRun, zspLogoFixedHold)
+	if zspLogoRun != 10 || zspLogoFixedHold != 6.0 {
+		t.Errorf("the run is %d quartets and the Spectrum's holds %v s, want 10 and 6", zspLogoRun, zspLogoFixedHold)
 	}
 }
 
@@ -127,9 +127,9 @@ func TestZSPLogoShowsTheSpectrumQuartetForThreeSecondsAfterTenCycles(t *testing.
 
 	const step = 0.25
 	runEnd := float64(zspLogoRun) * zspLogoCycle // 15 s: the Spectrum's quartet takes over
-	holdEnd := runEnd + zspLogoFixedHold         // 18 s
-	fadeEnd := holdEnd + zspLogoFade             // 18.5 s
-	second := fadeEnd + runEnd                   // 33.5 s: the next run's Spectrum quartet
+	holdEnd := runEnd + zspLogoFixedHold         // 21 s
+	fadeEnd := holdEnd + zspLogoFade             // 21.5 s
+	second := fadeEnd + runEnd                   // 36.5 s: the next run's Spectrum quartet
 	drawn()
 	var beforeFade [zspLogoTeeth]Colour
 	for at := step; at <= second+zspLogoFixedHold+step; at += step {
@@ -151,9 +151,9 @@ func TestZSPLogoShowsTheSpectrumQuartetForThreeSecondsAfterTenCycles(t *testing.
 			}
 		default:
 			// A random quartet, or the fade into the Spectrum's: never wholly the Spectrum's
-			// before its time, nor after its three seconds.
+			// before its time, nor after its six seconds.
 			if isSpectrum {
-				t.Errorf("%.2f s: the Spectrum's quartet is shown outside its three seconds", at)
+				t.Errorf("%.2f s: the Spectrum's quartet is shown outside its six seconds", at)
 			}
 		}
 		if at == runEnd-step {
@@ -187,21 +187,21 @@ func TestZSPLogoSpectrumFadeBeginsOnlyAfterItsThreeSeconds(t *testing.T) {
 	if mb.logoTeeth != zspLogoSpectrum {
 		t.Fatalf("quartet %d is %v, want the Spectrum's %v", mb.logoSeq, mb.logoTeeth, zspLogoSpectrum)
 	}
-	// 2.75 s on: held. 3.25 s on: fading (the quartet is the same until the fade is over).
-	mb.Update(Input{DeltaTime: 2.75 - float32(mb.logoPhase)})
+	// A quarter second before its hold is over: held. A quarter second after: fading (the quartet is the same until the fade is over).
+	mb.Update(Input{DeltaTime: zspLogoFixedHold - 0.25 - float32(mb.logoPhase)})
 	mb.Draw(r, 800, 600, 0, 24, theme)
 	if got := zspLogoShownHeld(mb.logoTeeth, mb.logoNext, zspLogoHoldOf(mb.logoSeq), mb.logoPhase); got[0] != zspLogoPalette[zspLogoSpectrum[0]] {
-		t.Errorf("fading 2.75 s into the Spectrum's quartet")
+		t.Errorf("fading a quarter second before the end of the hold of the Spectrum's quartet")
 	}
 	mb.Update(Input{DeltaTime: 0.5})
 	mb.Draw(r, 800, 600, 0, 24, theme)
 	if got := zspLogoShownHeld(mb.logoTeeth, mb.logoNext, zspLogoHoldOf(mb.logoSeq), mb.logoPhase); got[0] == zspLogoPalette[zspLogoSpectrum[0]] && mb.logoSeq == zspLogoRun {
-		t.Errorf("not fading 3.25 s into the Spectrum's quartet: %+v", got)
+		t.Errorf("not fading a quarter second after the hold of the Spectrum's quartet: %+v", got)
 	}
 	// And the random ones begin again after it.
 	mb.Update(Input{DeltaTime: 0.5})
 	mb.Draw(r, 800, 600, 0, 24, theme)
 	if zspLogoFixedAt(mb.logoSeq) {
-		t.Errorf("still on the Spectrum's quartet, number %d, 3.75 s into it", mb.logoSeq)
+		t.Errorf("still on the Spectrum's quartet, number %d, long after its hold", mb.logoSeq)
 	}
 }
